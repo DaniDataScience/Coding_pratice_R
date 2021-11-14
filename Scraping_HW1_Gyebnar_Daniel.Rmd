@@ -1,0 +1,131 @@
+---
+title: "Scraping-HW-1"
+author: "Gyebnar Daniel"
+date: '2021 11 14 '
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+---
+### Task description
+
+I scraped imdb website searching for "James Bond" related content.
+
+I used for loops to extract selected variables within the infosheet of each observation - this allowed my to handle missing data that otherwise was skipped, resulting in different vector length
+
+I extracted the following variables
+- title
+- year
+- rating
+- genre
+- runtime
+- description
+
+### Importing libraries
+```{r}
+rm(list=ls())
+
+library(rvest)
+library(data.table)
+library(xml2)
+```
+
+### Creating the function
+```{r}
+get_one_page <- function(url) {
+  
+  link <- read_html(url)
+  
+  #getting the details for each movie
+  detail <- link %>% html_nodes(".mode-detail")
+  
+  #getting titles
+  titles <- c()
+  for (i in detail){
+    titles <- c(titles, i %>% html_nodes(".lister-item-header a") %>% html_text())
+  }
+  
+  #getting year publised
+  year <- c()
+  temp <- c()
+  for (i in detail){
+    if( length(i %>% html_nodes(".lister-item-header span") %>% html_text()) == 0 ){
+      year <- c(year, "")
+    } else {
+      temp <- i %>% html_nodes(".lister-item-header span") %>% html_text()
+      year <- c(year, temp[2])
+    }
+  }
+  length(year)
+  
+  # getting ratings and filtering out where there is no rating
+  rating <- c()
+  for (i in detail){
+    
+    if( length(i %>% html_nodes(".ratings-imdb-rating strong") %>% html_text()) == 0 ){
+      rating <- c(rating, "")
+    }
+    else {rating <- c(rating, i %>% html_nodes(".ratings-imdb-rating strong") %>% html_text())
+    }
+  }
+  rating
+  
+  # getting runtime
+  runtime <- c()
+  for (i in detail){
+    if( length(i %>% html_nodes(".runtime") %>% html_text()) == 0) {
+      runtime <- c(runtime, "")
+    }
+    else {runtime <- c(runtime,i %>% html_nodes(".runtime") %>% html_text())
+    }
+  }
+  
+  # getting description
+  description <- c()
+  for (i in detail) {
+    if( length(i %>% html_nodes(".ratings-bar+ p") %>% html_text()) == 0) {
+      description <- c(description, "")
+      break()
+    }
+    if( grepl(c("Add a Plot"), c(i %>% html_nodes(".ratings-bar+ p") %>% html_text())) ) {
+      description <- c(description, "")
+    }
+    else {description <- c(description, i %>% html_nodes(".ratings-bar+ p") %>% html_text())
+    }
+  }
+  
+  # getting genre
+  genre <- c()
+  for (i in detail) {
+    if( length(i %>% html_nodes(".genre") %>% html_text()) == 0) {
+      genre <- c(genre, "")
+      break()
+    } else {
+    genre <- c(genre, i %>% html_nodes(".genre") %>% html_text())
+    }
+  }
+  
+  return(data.frame("Title"=titles, "Year"=year, "Rating"=rating, "Genre"=genre, "Runtime"=runtime, "Desc"=description))
+  
+}
+
+```
+
+
+### Getting the links for page 3-5
+```{r}
+all_links <- paste0("https://www.imdb.com/search/keyword/?keywords=james-bond&ref_=kw_nxt&sort=moviemeter,asc&mode=detail&page=", 3:5)
+
+```
+
+### Creating the final dataframe
+```{r}
+list_of_dfs <- lapply(all_links, get_one_page)
+final_df <- rbindlist(list_of_dfs)
+```
+
+### Result
+```{r, echo=FALSE}
+library(kableExtra)
+final_df[1:5,] %>% 
+  kbl() %>% 
+  kable_classic(full_width=F)
